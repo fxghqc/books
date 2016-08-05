@@ -8,9 +8,9 @@ postgres
 
 jwt:
 ```bash
-curl -d '{"username": "admin", "password": "admin"}' -H "Content-Type:application/json" http://localhost:8080/login
-curl -H "Authorization:Bearer TOKEN_RETURNED_FROM_ABOVE" http://localhost:8080/auth_test
-curl -H "Authorization:Bearer TOKEN_RETURNED_FROM_ABOVE" http://localhost:8080/refresh_token
+curl -d '{"username": "admin", "password": "admin"}' -H "Content-Type:application/json" http://localhost:18080/login
+curl -H "Authorization:Bearer TOKEN_RETURNED_FROM_ABOVE" http://localhost:18080/auth_test
+curl -H "Authorization:Bearer TOKEN_RETURNED_FROM_ABOVE" http://localhost:18080/refresh_token
 ```
 
 #### Thanks

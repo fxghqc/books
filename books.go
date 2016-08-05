@@ -1,8 +1,8 @@
 package main
 
 import (
-	//   "fmt"
-	//  "strconv"
+	// "fmt"
+	// "strconv"
 	"github.com/StephanDollberg/go-json-rest-middleware-jwt"
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/jinzhu/gorm"
@@ -126,16 +126,11 @@ func main() {
 	i.InitSchema()
 
 	api := rest.NewApi()
+
 	statusMw := &rest.StatusMiddleware{}
 	api.Use(statusMw)
-	api.Use(rest.DefaultDevStack...)
 
-	api.Use(&rest.IfMiddleware{
-		Condition: func(request *rest.Request) bool {
-			return request.URL.Path != "/login"
-		},
-		IfTrue: jwt_middleware,
-	})
+	api.Use(rest.DefaultDevStack...)
 
 	api.Use(&rest.CorsMiddleware{
 		RejectNonCorsRequests: false,
@@ -145,9 +140,16 @@ func main() {
 		},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE"},
 		AllowedHeaders: []string{
-			"Accept", "Content-Type", "X-Custom-Header", "Origin"},
+			"Accept", "Content-Type", "X-Custom-Header", "Origin", "Authorization"},
 		AccessControlAllowCredentials: true,
 		AccessControlMaxAge:           3600,
+	})
+
+	api.Use(&rest.IfMiddleware{
+		Condition: func(request *rest.Request) bool {
+			return request.URL.Path != "/login"
+		},
+		IfTrue: jwt_middleware,
 	})
 
 	router, err := rest.MakeRouter(
