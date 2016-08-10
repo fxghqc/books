@@ -13,11 +13,20 @@ import (
 )
 
 type Book struct {
-	Id        int64      `json:"id"`
-	Name      string     `sql:"size:1024" json:"name"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt time.Time  `json:"updatedAt"`
-	DeletedAt *time.Time `json:"-"`
+	Id          int64      `json:"id"`
+	Name        string     `sql:"size:1024" json:"name"`
+	Author      string     `sql:"size:512" json:"author"`
+	Translator  string     `sql:"size:512" json:"translator"`
+	Pages       int64      `json:"pages"`
+	Publisher   string     `sql:"size:256" json:"publisher"`
+	Language    string     `sql:"size:128" json:"language"`
+	Description string     `sql:"size:" json:"description"`
+	PublishedAt time.Time  `json:"publishedAt"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+	DeletedAt   *time.Time `json:"-"`
+	// Review    int64      `json:"review"`
+	// Rank      string     `sql:"size:1024" json:"rank"`
 }
 
 type Impl struct {
