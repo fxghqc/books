@@ -21,6 +21,7 @@ type Book struct {
 	Publisher   string     `sql:"size:256" json:"publisher"`
 	Language    string     `sql:"size:128" json:"language"`
 	Description string     `sql:"size:" json:"description"`
+	Owner       string     `sql:"size:128" json:"owner"`
 	PublishedAt time.Time  `json:"publishedAt"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
