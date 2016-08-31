@@ -13,7 +13,7 @@ import (
 )
 
 type Book struct {
-	Id          int64      `json:"id"`
+	ID          int64      `json:"id"`
 	Name        string     `sql:"size:1024" json:"name"`
 	Author      string     `sql:"size:512" json:"author"`
 	Translator  string     `sql:"size:512" json:"translator"`
@@ -22,12 +22,20 @@ type Book struct {
 	Language    string     `sql:"size:128" json:"language"`
 	Description string     `sql:"size:" json:"description"`
 	Owner       string     `sql:"size:128" json:"owner"`
+	Borrowers   []User     `gorm:"many2many:book_borrowers" sql:"size:1024" json:"borrowers"`
 	PublishedAt time.Time  `json:"publishedAt"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
 	DeletedAt   *time.Time `json:"-"`
 	// Review    int64      `json:"review"`
 	// Rank      string     `sql:"size:1024" json:"rank"`
+}
+
+type User struct {
+	gorm.Model
+	Name     string
+	Password string
+	Email    string
 }
 
 type Impl struct {
@@ -44,12 +52,14 @@ func (i *Impl) InitDB() {
 }
 
 func (i *Impl) InitSchema() {
-	i.DB.AutoMigrate(&Book{})
+	i.DB.AutoMigrate(&Book{}, &User{})
 }
 
 func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
 	books := []Book{}
-	i.DB.Find(&books)
+	// i.DB.Find(&books)
+	i.DB.Preload("Borrowers").Find(&books)
+
 	w.WriteJson(&books)
 }
 
@@ -61,6 +71,10 @@ func (i *Impl) GetBook(w rest.ResponseWriter, r *rest.Request) {
 		rest.NotFound(w, r)
 		return
 	}
+
+	users := []User{}
+	i.DB.Model(&book).Related(&users, "Borrowers")
+	book.Borrowers = users
 
 	w.WriteJson(book)
 }
@@ -134,6 +148,12 @@ func main() {
 	i := Impl{}
 	i.InitDB()
 	i.InitSchema()
+
+	//	book := Book{
+	//	  	Name:      "webGL",
+	//		Borrowers: []User{{Name: "范晓", Password: "123456", Email: "fanxiao@k2data.com.cn"}},
+	//	}
+	//	i.DB.Create(&book)
 
 	api := rest.NewApi()
 
