@@ -1,15 +1,16 @@
 package main
 
 import (
-	// "fmt"
+	"fmt"
 	// "strconv"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/StephanDollberg/go-json-rest-middleware-jwt"
 	"github.com/ant0ine/go-json-rest/rest"
 	"github.com/jinzhu/gorm"
 	_ "github.com/lib/pq"
-	"log"
-	"net/http"
-	"time"
 )
 
 type Book struct {
@@ -38,6 +39,19 @@ type User struct {
 	Email    string
 }
 
+type BorrowRecord struct {
+	ID        int64      `json:"id"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
+	DeletedAt *time.Time `json:"-"`
+	StartAt   time.Time  `json:"startAt"`
+	EndAt     time.Time  `json:"endAt"`
+	Book      Book       `json:"book"`
+	BookID    int64      `json:"bookID"`
+	User      User       `json:"user"`
+	UserID    int        `json:"userID"`
+}
+
 type Impl struct {
 	DB *gorm.DB
 }
@@ -52,7 +66,7 @@ func (i *Impl) InitDB() {
 }
 
 func (i *Impl) InitSchema() {
-	i.DB.AutoMigrate(&Book{}, &User{})
+	i.DB.AutoMigrate(&Book{}, &User{}, &BorrowRecord{})
 }
 
 func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
@@ -131,6 +145,86 @@ func (i *Impl) DeleteBook(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (i *Impl) GetAllBorrowRecords(w rest.ResponseWriter, r *rest.Request) {
+	borrowRecords := []BorrowRecord{}
+	fmt.Printf("hello, get all records.")
+	// i.DB.Find(&borrowRecords)
+	i.DB.Preload("User").Preload("Book").Find(&borrowRecords)
+
+	w.WriteJson(&borrowRecords)
+}
+
+func (i *Impl) GetBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
+	id := r.PathParam("id")
+	borrowRecord := BorrowRecord{}
+
+	if i.DB.First(&borrowRecord, id).Error != nil {
+		rest.NotFound(w, r)
+		return
+	}
+
+	// users := []User{}
+	// i.DB.Model(&book).Related(&users, "Borrowers")
+	// book.Borrowers = users
+
+	w.WriteJson(&borrowRecord)
+}
+
+func (i *Impl) PostBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
+	borrowRecord := BorrowRecord{}
+
+	if err := r.DecodeJsonPayload(&borrowRecord); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Printf("%+v", borrowRecord)
+
+	if err := i.DB.Save(&borrowRecord).Error; err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteJson(&borrowRecord)
+}
+
+func (i *Impl) PutBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
+	id := r.PathParam("id")
+	borrowRecord := BorrowRecord{}
+	if i.DB.First(&borrowRecord, id).Error != nil {
+		rest.NotFound(w, r)
+		return
+	}
+
+	updated := BorrowRecord{}
+	if err := r.DecodeJsonPayload(&updated); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// book.Name = updated.Name
+	if err := i.DB.Save(&borrowRecord).Error; err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteJson(&borrowRecord)
+}
+
+func (i *Impl) DeleteBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
+	id := r.PathParam("id")
+	borrowRecord := BorrowRecord{}
+	if i.DB.First(&borrowRecord, id).Error != nil {
+		rest.NotFound(w, r)
+		return
+	}
+	if err := i.DB.Delete(&borrowRecord).Error; err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func handle_auth(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(map[string]string{"authed": r.Env["REMOTE_USER"].(string)})
 }
@@ -149,11 +243,29 @@ func main() {
 	i.InitDB()
 	i.InitSchema()
 
-	//	book := Book{
-	//	  	Name:      "webGL",
-	//		Borrowers: []User{{Name: "范晓", Password: "123456", Email: "fanxiao@k2data.com.cn"}},
-	//	}
-	//	i.DB.Create(&book)
+	// book := Book{
+	// 	Name:      "webGL",
+	// 	Borrowers: []User{{Name: "范晓", Password: "123456", Email: "fanxiao@k2data.com.cn"}},
+	// }
+	// i.DB.Create(&book)
+
+	// book := Book{}
+	// if i.DB.First(&book, 1).Error != nil {
+	//
+	// }
+	//
+	// user := User{}
+	// if i.DB.First(&user, 1).Error != nil {
+	// }
+	// fmt.Printf("%+v", user)
+	//
+	// borrowRecord := BorrowRecord{
+	// 	StartAt: time.Now(),
+	// 	EndAt:   time.Now(),
+	// 	Book:    book,
+	// 	User:    user,
+	// }
+	// i.DB.Create(&borrowRecord)
 
 	api := rest.NewApi()
 
@@ -191,6 +303,11 @@ func main() {
 		rest.Get("/books/:id", i.GetBook),
 		rest.Put("/books/:id", i.PutBook),
 		rest.Delete("/books/:id", i.DeleteBook),
+		rest.Get("/borrow-records", i.GetAllBorrowRecords),
+		rest.Post("/borrow-records", i.PostBorrowRecord),
+		rest.Get("/borrow-records/:id", i.GetBorrowRecord),
+		rest.Put("/borrow-records/:id", i.PutBorrowRecord),
+		rest.Delete("/borrow-records/:id", i.DeleteBorrowRecord),
 		rest.Get("/.status", func(w rest.ResponseWriter, r *rest.Request) {
 			w.WriteJson(statusMw.GetStatus())
 		}),
