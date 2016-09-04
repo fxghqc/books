@@ -13,6 +13,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// Book ...
 type Book struct {
 	ID          int64      `json:"id"`
 	Name        string     `sql:"size:1024" json:"name"`
@@ -22,7 +23,8 @@ type Book struct {
 	Publisher   string     `sql:"size:256" json:"publisher"`
 	Language    string     `sql:"size:128" json:"language"`
 	Description string     `sql:"size:" json:"description"`
-	Owner       string     `sql:"size:128" json:"owner"`
+	Owner       User       `json:"owner"`
+	OwnerID     int        `json:"owner"`
 	Borrowers   []User     `gorm:"many2many:book_borrowers" sql:"size:1024" json:"borrowers"`
 	PublishedAt time.Time  `json:"publishedAt"`
 	CreatedAt   time.Time  `json:"createdAt"`
@@ -32,13 +34,18 @@ type Book struct {
 	// Rank      string     `sql:"size:1024" json:"rank"`
 }
 
+// User ...
 type User struct {
-	gorm.Model
-	Name     string
-	Password string
-	Email    string
+	ID        int64      `json:"id"`
+	CreatedAt time.Time  `json:"createdAt"`
+	UpdatedAt time.Time  `json:"updatedAt"`
+	DeletedAt *time.Time `json:"-"`
+	Name      string
+	Password  string `json:"-"`
+	Email     string
 }
 
+// BorrowRecord ...
 type BorrowRecord struct {
 	ID        int64      `json:"id"`
 	CreatedAt time.Time  `json:"createdAt"`
@@ -52,10 +59,12 @@ type BorrowRecord struct {
 	UserID    int        `json:"userID"`
 }
 
+// Impl ...
 type Impl struct {
 	DB *gorm.DB
 }
 
+// InitDB ...
 func (i *Impl) InitDB() {
 	var err error
 	i.DB, err = gorm.Open("postgres", "postgresql://postgres:123456Pg@localhost:5432/postgres?sslmode=disable")
@@ -65,10 +74,12 @@ func (i *Impl) InitDB() {
 	i.DB.LogMode(true)
 }
 
+// InitSchema ...
 func (i *Impl) InitSchema() {
 	i.DB.AutoMigrate(&Book{}, &User{}, &BorrowRecord{})
 }
 
+// GetAllBooks ...
 func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
 	books := []Book{}
 	// i.DB.Find(&books)
@@ -77,6 +88,7 @@ func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&books)
 }
 
+// GetBook ...
 func (i *Impl) GetBook(w rest.ResponseWriter, r *rest.Request) {
 	id := r.PathParam("id")
 	book := Book{}
@@ -93,6 +105,7 @@ func (i *Impl) GetBook(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(book)
 }
 
+// PostBook ...
 func (i *Impl) PostBook(w rest.ResponseWriter, r *rest.Request) {
 	book := Book{}
 	if err := r.DecodeJsonPayload(&book); err != nil {
@@ -107,6 +120,7 @@ func (i *Impl) PostBook(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&book)
 }
 
+// PutBook ...
 func (i *Impl) PutBook(w rest.ResponseWriter, r *rest.Request) {
 	id := r.PathParam("id")
 	book := Book{}
@@ -130,6 +144,7 @@ func (i *Impl) PutBook(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&book)
 }
 
+// DeleteBook ...
 func (i *Impl) DeleteBook(w rest.ResponseWriter, r *rest.Request) {
 	id := r.PathParam("id")
 	book := Book{}
@@ -145,6 +160,7 @@ func (i *Impl) DeleteBook(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetAllBorrowRecords ...
 func (i *Impl) GetAllBorrowRecords(w rest.ResponseWriter, r *rest.Request) {
 	borrowRecords := []BorrowRecord{}
 	fmt.Printf("hello, get all records.")
@@ -154,6 +170,7 @@ func (i *Impl) GetAllBorrowRecords(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&borrowRecords)
 }
 
+// GetBorrowRecord ...
 func (i *Impl) GetBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	id := r.PathParam("id")
 	borrowRecord := BorrowRecord{}
@@ -170,6 +187,7 @@ func (i *Impl) GetBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&borrowRecord)
 }
 
+// PostBorrowRecord ...
 func (i *Impl) PostBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	borrowRecord := BorrowRecord{}
 
@@ -187,6 +205,7 @@ func (i *Impl) PostBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&borrowRecord)
 }
 
+// PutBorrowRecord ...
 func (i *Impl) PutBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	id := r.PathParam("id")
 	borrowRecord := BorrowRecord{}
@@ -210,6 +229,7 @@ func (i *Impl) PutBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(&borrowRecord)
 }
 
+// DeleteBorrowRecord ...
 func (i *Impl) DeleteBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	id := r.PathParam("id")
 	borrowRecord := BorrowRecord{}
@@ -225,24 +245,13 @@ func (i *Impl) DeleteBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func handle_auth(w rest.ResponseWriter, r *rest.Request) {
+// handleAuth ...
+func handleAuth(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(map[string]string{"authed": r.Env["REMOTE_USER"].(string)})
 }
 
-func main() {
-	jwt_middleware := &jwt.JWTMiddleware{
-		Key:        []byte("secret key"),
-		Realm:      "jwt auth",
-		Timeout:    time.Hour * 12,
-		MaxRefresh: time.Hour * 24,
-		Authenticator: func(userId string, password string) bool {
-			return userId == "admin" && password == "admin"
-		}}
-
-	i := Impl{}
-	i.InitDB()
-	i.InitSchema()
-
+// import data from csv
+func (i *Impl) importFromCsv() {
 	// book := Book{
 	// 	Name:      "webGL",
 	// 	Borrowers: []User{{Name: "范晓", Password: "123456", Email: "fanxiao@k2data.com.cn"}},
@@ -266,6 +275,23 @@ func main() {
 	// 	User:    user,
 	// }
 	// i.DB.Create(&borrowRecord)
+}
+
+// main ...
+func main() {
+	jwtMiddleware := &jwt.JWTMiddleware{
+		Key:        []byte("secret key"),
+		Realm:      "jwt auth",
+		Timeout:    time.Hour * 12,
+		MaxRefresh: time.Hour * 24,
+		Authenticator: func(userId string, password string) bool {
+			return userId == "admin" && password == "admin"
+		}}
+
+	i := Impl{}
+	i.InitDB()
+	i.InitSchema()
+	i.importFromCsv()
 
 	api := rest.NewApi()
 
@@ -291,13 +317,13 @@ func main() {
 		Condition: func(request *rest.Request) bool {
 			return request.URL.Path != "/login"
 		},
-		IfTrue: jwt_middleware,
+		IfTrue: jwtMiddleware,
 	})
 
 	router, err := rest.MakeRouter(
-		rest.Post("/login", jwt_middleware.LoginHandler),
-		rest.Get("/auth_test", handle_auth),
-		rest.Get("/refresh_token", jwt_middleware.RefreshHandler),
+		rest.Post("/login", jwtMiddleware.LoginHandler),
+		rest.Get("/auth_test", handleAuth),
+		rest.Get("/refresh_token", jwtMiddleware.RefreshHandler),
 		rest.Get("/books", i.GetAllBooks),
 		rest.Post("/books", i.PostBook),
 		rest.Get("/books/:id", i.GetBook),
