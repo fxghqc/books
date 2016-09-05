@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
-	// "strconv"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/StephanDollberg/go-json-rest-middleware-jwt"
@@ -23,6 +25,7 @@ type Book struct {
 	Publisher   string     `sql:"size:256" json:"publisher"`
 	Language    string     `sql:"size:128" json:"language"`
 	Description string     `sql:"size:" json:"description"`
+	Quantity    int        `json:"quantity"`
 	Owner       User       `json:"owner"`
 	OwnerID     int        `json:"owner"`
 	Borrowers   []User     `gorm:"many2many:book_borrowers" sql:"size:1024" json:"borrowers"`
@@ -57,6 +60,7 @@ type BorrowRecord struct {
 	BookID    int64      `json:"bookID"`
 	User      User       `json:"user"`
 	UserID    int        `json:"userID"`
+	Status    string     `sql:"size:128" json:"status"`
 }
 
 // Impl ...
@@ -250,8 +254,88 @@ func handleAuth(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteJson(map[string]string{"authed": r.Env["REMOTE_USER"].(string)})
 }
 
+func (i *Impl) importBooks() {
+	csvfile, err := os.Open("local/books.csv")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	defer csvfile.Close()
+
+	reader := csv.NewReader(csvfile)
+
+	reader.FieldsPerRecord = -1 // see the Reader struct information below
+
+	rawCSVdata, err := reader.ReadAll()
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// sanity check, display to standard output
+	fmt.Printf("total size: %d", len(rawCSVdata))
+	for _, each := range rawCSVdata {
+		fmt.Printf("Name : %s , Author : %s and Quantity: %s\n",
+			each[0], each[1], each[2])
+		quantity, err := strconv.Atoi(each[2])
+
+		if err != nil {
+			quantity = 1
+		}
+
+		book := Book{
+			Name:     each[0],
+			Author:   each[1],
+			Quantity: quantity,
+		}
+		i.DB.Set("gorm:save_associations", false).Create(&book)
+	}
+}
+
+func (i *Impl) importUsers() {
+	csvfile, err := os.Open("local/users.csv")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	defer csvfile.Close()
+
+	reader := csv.NewReader(csvfile)
+
+	reader.FieldsPerRecord = -1 // see the Reader struct information below
+
+	rawCSVdata, err := reader.ReadAll()
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// sanity check, display to standard output
+	fmt.Printf("total size: %d", len(rawCSVdata))
+	for _, each := range rawCSVdata {
+		fmt.Printf("Name : %s , Email : %s\n",
+			each[0], each[1])
+
+		user := User{
+			Name:     each[0],
+			Email:    each[1],
+			Password: "passw0rd",
+		}
+		i.DB.Set("gorm:save_associations", false).Create(&user)
+	}
+}
+
 // import data from csv
 func (i *Impl) importFromCsv() {
+	// i.importBooks()
+	// i.importUsers()
+
 	// book := Book{
 	// 	Name:      "webGL",
 	// 	Borrowers: []User{{Name: "范晓", Password: "123456", Email: "fanxiao@k2data.com.cn"}},
