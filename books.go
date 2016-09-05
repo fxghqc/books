@@ -361,21 +361,30 @@ func (i *Impl) importFromCsv() {
 	// i.DB.Create(&borrowRecord)
 }
 
+func (i *Impl) validateUser(email string, password string) bool {
+	count := 0
+	i.DB.Model(&User{}).
+		Where("email = ? and password = ?", email, password).
+		Count(&count)
+	return count == 1 || (email == "admin" && password == "admin1378^")
+}
+
 // main ...
 func main() {
+
+	i := Impl{}
+	i.InitDB()
+	i.InitSchema()
+	i.importFromCsv()
+
 	jwtMiddleware := &jwt.JWTMiddleware{
 		Key:        []byte("secret key"),
 		Realm:      "jwt auth",
 		Timeout:    time.Hour * 12,
 		MaxRefresh: time.Hour * 24,
 		Authenticator: func(userId string, password string) bool {
-			return userId == "admin" && password == "admin"
+			return i.validateUser(userId, password)
 		}}
-
-	i := Impl{}
-	i.InitDB()
-	i.InitSchema()
-	i.importFromCsv()
 
 	api := rest.NewApi()
 
