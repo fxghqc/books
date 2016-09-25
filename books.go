@@ -43,9 +43,9 @@ type User struct {
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 	DeletedAt *time.Time `json:"-"`
-	Name      string
-	Password  string `json:"-"`
-	Email     string
+	Name      string		 `json:"name"`
+	Password  string 		 `json:"-"`
+	Email     string		 `json:"email"`
 }
 
 // BorrowRecord ...
