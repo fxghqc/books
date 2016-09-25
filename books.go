@@ -331,10 +331,77 @@ func (i *Impl) importUsers() {
 	}
 }
 
+func (i *Impl) connectUsersAndBooks() {
+	csvfile, err := os.Open("local/records.csv")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	defer csvfile.Close()
+
+	reader := csv.NewReader(csvfile)
+
+	reader.FieldsPerRecord = -1 // see the Reader struct information below
+
+	rawCSVdata, err := reader.ReadAll()
+
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// sanity check, display to standard output
+	fmt.Printf("total size: %d\n", len(rawCSVdata))
+	for _, each := range rawCSVdata {
+		// fmt.Printf("Name : %s , User : %s, date : %s\n",
+		// 	each[0], each[1], each[2])
+
+		startAt := time.Date(2016, time.August, 15, 0, 0, 0, 0, time.UTC)
+		br := BorrowRecord{
+			StartAt:		startAt,
+			Status:     "借阅中",
+		}
+
+		book := Book{}
+		i.DB.Where(&Book{Name: each[0]}).First(&book)
+		// if book.Name == "" {
+		// 	fmt.Printf("book not found: %s\n", each[0])
+		// }
+
+		user := User{}
+		i.DB.Where(&User{Name: each[1]}).First(&user)
+		// if user.Name == "" {
+		// 	fmt.Printf("user not found: %s\n", each[1])
+		// }
+
+		i.DB.Set("gorm:save_associations", false).Create(&br)
+		i.DB.Model(&br).Association("Book").Append(book)
+		i.DB.Model(&br).Association("User").Append(user)
+
+		i.DB.Model(&book).Association("Borrowers").Append(user)
+
+		fmt.Printf("%+v\n", br)
+	}
+}
+
+func (i *Impl) deleteBR() {
+	count := 0
+
+	i.DB.Delete(&BorrowRecord{})
+	i.DB.Unscoped().Delete(&BorrowRecord{})
+	i.DB.Model(&BorrowRecord{}).Count(&count)
+	fmt.Printf("remain br: %d\n", count)
+}
+
 // import data from csv
 func (i *Impl) importFromCsv() {
 	// i.importBooks()
 	// i.importUsers()
+
+	// i.deleteBR()
+	// i.connectUsersAndBooks()
 
 	// book := Book{
 	// 	Name:      "webGL",
