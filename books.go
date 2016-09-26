@@ -43,9 +43,9 @@ type User struct {
 	CreatedAt time.Time  `json:"createdAt"`
 	UpdatedAt time.Time  `json:"updatedAt"`
 	DeletedAt *time.Time `json:"-"`
-	Name      string		 `json:"name"`
-	Password  string 		 `json:"-"`
-	Email     string		 `json:"email"`
+	Name      string     `json:"name"`
+	Password  string     `json:"-"`
+	Email     string     `json:"email"`
 }
 
 // BorrowRecord ...
@@ -360,8 +360,8 @@ func (i *Impl) connectUsersAndBooks() {
 
 		startAt := time.Date(2016, time.August, 15, 0, 0, 0, 0, time.UTC)
 		br := BorrowRecord{
-			StartAt:		startAt,
-			Status:     "借阅中",
+			StartAt: startAt,
+			Status:  "借阅中",
 		}
 
 		book := Book{}
