@@ -117,7 +117,9 @@ func (i *Impl) PostBook(w rest.ResponseWriter, r *rest.Request) {
 		return
 	}
 
-	if err := i.DB.Save(&book).Error; err != nil {
+
+	if err := i.DB.Set(
+			"gorm:save_associations", false).Create(&book).Error; err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -150,12 +152,33 @@ func (i *Impl) PutBook(w rest.ResponseWriter, r *rest.Request) {
 
 // DeleteBook ...
 func (i *Impl) DeleteBook(w rest.ResponseWriter, r *rest.Request) {
-	id := r.PathParam("id")
+	id, _ := strconv.ParseInt(r.PathParam("id"), 10, 64)
+
+	// check if book exist
 	book := Book{}
 	if i.DB.First(&book, id).Error != nil {
 		rest.NotFound(w, r)
 		return
 	}
+	fmt.Printf("delete book: %+v", &book)
+
+	// check if book is borrowed
+	count := 0
+	err := i.DB.Model(&BorrowRecord{}).Where(&BorrowRecord{
+		BookID: id, Status: "借阅中",
+	}).Count(&count).Error
+
+	if err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if count > 0 {
+		rest.Error(w, "借阅中，不能删除", http.StatusInternalServerError)
+		return
+	}
+
+	// delete book
 	if err := i.DB.Delete(&book).Error; err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
