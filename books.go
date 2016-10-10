@@ -101,7 +101,8 @@ func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
 	if len(borrowerID) > 0 {
 		id, _ := strconv.ParseInt(borrowerID[0], 10, 64)
 		fmt.Printf("borrowerID: %d\n", id)
-		query = query.Preload("Borrowers", "id = ?", id)
+		query = query.Preload("Borrowers", "id = ?", id).
+			Joins("join book_borrowers on book_borrowers.book_id = books.id and book_borrowers.user_id = ?", id)
 	} else {
 		query = query.Preload("Borrowers")
 	}
@@ -113,6 +114,8 @@ func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
 
 	books := []Book{}
 	query.Find(&books)
+
+	fmt.Printf("%+v\n", books)
 
 	w.WriteJson(&books)
 }
