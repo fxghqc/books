@@ -28,7 +28,7 @@ type Book struct {
 	Description string     `sql:"size:" json:"description"`
 	Quantity    int        `json:"quantity"`
 	Owner       User       `json:"owner"`
-	OwnerID     int        `json:"owner"`
+	OwnerID     int64      `json:"ownerID"`
 	Borrowers   []User     `gorm:"many2many:book_borrowers" sql:"size:1024" json:"borrowers"`
 	PublishedAt *time.Time `json:"publishedAt"`
 	CreatedAt   time.Time  `json:"createdAt"`
@@ -60,11 +60,11 @@ type BorrowRecord struct {
 	Book      Book       `json:"book"`
 	BookID    int64      `json:"bookID"`
 	User      User       `json:"user"`
-	UserID    int        `json:"userID"`
+	UserID    int64      `json:"userID"`
 	Status    string     `sql:"size:128" json:"status"`
 }
 
-// borrow book
+// Borrowing ...
 type Borrowing struct {
 	User *User `json:"user"`
 	Book *Book `json:"book"`
@@ -92,9 +92,27 @@ func (i *Impl) InitSchema() {
 
 // GetAllBooks ...
 func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
+	queryParams := r.URL.Query()
+	ownerID := queryParams["ownerID"]
+	borrowerID := queryParams["borrowerID"]
+
+	query := i.DB.Preload("Owner")
+
+	if len(borrowerID) > 0 {
+		id, _ := strconv.ParseInt(borrowerID[0], 10, 64)
+		fmt.Printf("borrowerID: %d\n", id)
+		query = query.Preload("Borrowers", "id = ?", id)
+	} else {
+		query = query.Preload("Borrowers")
+	}
+
+	if len(ownerID) > 0 {
+		id, _ := strconv.ParseInt(ownerID[0], 10, 64)
+		query = query.Where(&Book{OwnerID: id})
+	}
+
 	books := []Book{}
-	// i.DB.Find(&books)
-	i.DB.Preload("Borrowers").Find(&books)
+	query.Find(&books)
 
 	w.WriteJson(&books)
 }
@@ -193,7 +211,48 @@ func (i *Impl) DeleteBook(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// BorrowBook borrow book
 func (i *Impl) BorrowBook(w rest.ResponseWriter, r *rest.Request) {
+	borrowing := Borrowing{}
+	if err := r.DecodeJsonPayload(&borrowing); err != nil {
+		rest.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// user := borrowing.User
+	// book := borrowing.Book
+
+	user := &User{}
+	book := &Book{}
+
+	i.DB.Where(&User{ID: borrowing.User.ID}).First(&user)
+	i.DB.Where(&Book{ID: borrowing.Book.ID}).First(&book)
+
+	fmt.Printf("%+v", borrowing.User)
+	fmt.Printf("%+v", borrowing.Book)
+
+	startAt := time.Now()
+	endAt := startAt.AddDate(0, 1, 0)
+
+	br := BorrowRecord{
+		StartAt: &startAt,
+		EndAt:   &endAt,
+		Status:  "借阅中",
+	}
+
+	i.DB.Set("gorm:save_associations", false).Create(&br)
+	i.DB.Model(&br).Association("Book").Append(book)
+	i.DB.Model(&br).Association("User").Append(user)
+
+	i.DB.Model(&book).Association("Borrowers").Append(user)
+
+	fmt.Printf("%+v\n", book)
+
+	w.WriteJson(&book)
+}
+
+// ReturnBook return book
+func (i *Impl) ReturnBook(w rest.ResponseWriter, r *rest.Request) {
 	borrowing := Borrowing{}
 	if err := r.DecodeJsonPayload(&borrowing); err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
@@ -206,17 +265,17 @@ func (i *Impl) BorrowBook(w rest.ResponseWriter, r *rest.Request) {
 	fmt.Printf("%+v", borrowing.User)
 	fmt.Printf("%+v", borrowing.Book)
 
-	startAt := time.Now()
-	br := BorrowRecord{
-		StartAt: &startAt,
-		Status:  "借阅中",
-	}
+	br := &BorrowRecord{}
+	i.DB.Where(&BorrowRecord{
+		UserID: user.ID,
+		BookID: book.ID,
+		Status: "借阅中",
+	}).First(&br)
 
-	i.DB.Set("gorm:save_associations", false).Create(&br)
-	i.DB.Model(&br).Association("Book").Append(book)
-	i.DB.Model(&br).Association("User").Append(user)
+	now := time.Now()
+	i.DB.Model(&br).Update(BorrowRecord{Status: "已归还", EndAt: &now})
 
-	i.DB.Model(&book).Association("Borrowers").Append(user)
+	i.DB.Model(&book).Association("Borrowers").Delete(user)
 
 	fmt.Printf("%+v\n", book)
 
@@ -327,7 +386,7 @@ func (i *Impl) DeleteBorrowRecord(w rest.ResponseWriter, r *rest.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// GetAllUsers
+// GetAllUsers ...
 func (i *Impl) GetAllUsers(w rest.ResponseWriter, r *rest.Request) {
 	queryParams := r.URL.Query()
 	name := queryParams["name"]
@@ -391,6 +450,10 @@ func (i *Impl) importBooks() {
 			Quantity: quantity,
 		}
 		i.DB.Set("gorm:save_associations", false).Create(&book)
+
+		admin := User{}
+		i.DB.Where(&User{Name: "admin"}).First(&admin)
+		i.DB.Model(&book).Association("Owner").Append(admin)
 	}
 }
 
@@ -428,6 +491,13 @@ func (i *Impl) importUsers() {
 		}
 		i.DB.Set("gorm:save_associations", false).Create(&user)
 	}
+
+	admin := User{
+		Name:     "admin",
+		Email:    "admin",
+		Password: "admin1378^",
+	}
+	i.DB.Set("gorm:save_associations", false).Create(&admin)
 }
 
 func (i *Impl) connectUsersAndBooks() {
@@ -480,7 +550,6 @@ func (i *Impl) connectUsersAndBooks() {
 		i.DB.Model(&br).Association("User").Append(user)
 
 		i.DB.Model(&book).Association("Borrowers").Append(user)
-
 		fmt.Printf("%+v\n", br)
 	}
 }
@@ -496,11 +565,12 @@ func (i *Impl) deleteBR() {
 
 // import data from csv
 func (i *Impl) importFromCsv() {
-	// i.importBooks()
 	// i.importUsers()
+	// i.importBooks()
+	//
+	// i.connectUsersAndBooks()
 
 	// i.deleteBR()
-	// i.connectUsersAndBooks()
 
 	// book := Book{
 	// 	Name:      "webGL",
@@ -532,6 +602,7 @@ func (i *Impl) validateUser(email string, password string) bool {
 	i.DB.Model(&User{}).
 		Where("email = ? and password = ?", email, password).
 		Count(&count)
+	fmt.Printf("%d\n", count)
 	return count == 1 || (email == "admin" && password == "admin1378^")
 }
 
@@ -586,6 +657,7 @@ func main() {
 		rest.Get("/books", i.GetAllBooks),
 		rest.Post("/books", i.PostBook),
 		rest.Post("/books/borrow", i.BorrowBook),
+		rest.Post("/books/return", i.ReturnBook),
 		rest.Get("/books/:id", i.GetBook),
 		rest.Put("/books/:id", i.PutBook),
 		rest.Delete("/books/:id", i.DeleteBook),
