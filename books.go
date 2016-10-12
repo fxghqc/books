@@ -113,7 +113,7 @@ func (i *Impl) GetAllBooks(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	books := []Book{}
-	query.Find(&books)
+	query.Order("updated_at desc").Find(&books)
 
 	fmt.Printf("%+v\n", books)
 

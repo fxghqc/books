@@ -2,7 +2,7 @@
 
 pg:
 ```bash
-docker run --name books-pg -e POSTGRES_PASSWORD=123456Pg -v /var/lib/postgresql/data:/data/volumes -p 5432:5432 -d postgres
+docker run --name books-pg -e POSTGRES_PASSWORD=123456Pg -v /data/volumes/pg-books:/var/lib/postgresql/data -p 5432:5432 -d postgres
 ```
 
 jwt:
