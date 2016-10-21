@@ -78,7 +78,7 @@ type Impl struct {
 // InitDB ...
 func (i *Impl) InitDB() {
 	var err error
-	i.DB, err = gorm.Open("postgres", "postgresql://postgres:123456Pg@localhost:5432/postgres?sslmode=disable")
+	i.DB, err = gorm.Open("postgres", "postgresql://postgres:123456Pg@localhost:5442/postgres?sslmode=disable")
 	if err != nil {
 		log.Fatalf("Got error when connect database, the error is '%v'", err)
 	}
