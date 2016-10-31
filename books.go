@@ -229,7 +229,7 @@ func (i *Impl) BorrowBook(w rest.ResponseWriter, r *rest.Request) {
 	book := &Book{}
 
 	i.DB.Where(&User{ID: borrowing.User.ID}).First(&user)
-	i.DB.Where(&Book{ID: borrowing.Book.ID}).First(&book)
+	i.DB.Preload("Borrowers").Where(&Book{ID: borrowing.Book.ID}).First(&book)
 
 	fmt.Printf("%+v", borrowing.User)
 	fmt.Printf("%+v", borrowing.Book)
