@@ -275,6 +275,11 @@ func (i *Impl) ReturnBook(w rest.ResponseWriter, r *rest.Request) {
 		Status: "借阅中",
 	}).First(&br)
 
+	if br.BookID == 0 && br.UserID == 0 {
+		rest.Error(w, "还书失败", http.StatusMethodNotAllowed)
+		return
+	}
+
 	now := time.Now()
 	i.DB.Model(&br).Update(BorrowRecord{Status: "已归还", EndAt: &now})
 
