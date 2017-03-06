@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -73,6 +74,23 @@ type Borrowing struct {
 // Impl ...
 type Impl struct {
 	DB *gorm.DB
+}
+
+// Update Merge two book
+func (b1 Book) Update(b2 Book) (b3 Book) {
+	old := reflect.ValueOf(b1)
+	typeOfOld := old.Type()
+	new := reflect.ValueOf(b2)
+	final := reflect.ValueOf(&b3).Elem()
+	for i := 0; i < old.NumField(); i++ {
+		fmt.Printf("%d: %s %v\n", i, typeOfOld.Field(i).Name, old.Field(i))
+		if !new.Field(i).IsNil() {
+			final.Field(i).Set(new.Field(i))
+		} else {
+			final.Field(i).Set(old.Field(i))
+		}
+	}
+	return
 }
 
 // InitDB ...
@@ -170,6 +188,11 @@ func (i *Impl) PutBook(w rest.ResponseWriter, r *rest.Request) {
 
 	book.Name = updated.Name
 	book.Quantity = updated.Quantity
+	book.Author = updated.Author
+	book.Translator = updated.Translator
+	book.Pages = updated.Pages
+	book.Publisher = updated.Publisher
+	book.PublishedAt = updated.PublishedAt
 	if err := i.DB.Save(&book).Error; err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
