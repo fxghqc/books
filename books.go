@@ -169,6 +169,7 @@ func (i *Impl) PutBook(w rest.ResponseWriter, r *rest.Request) {
 	}
 
 	book.Name = updated.Name
+	book.Quantity = updated.Quantity
 	if err := i.DB.Save(&book).Error; err != nil {
 		rest.Error(w, err.Error(), http.StatusInternalServerError)
 		return
